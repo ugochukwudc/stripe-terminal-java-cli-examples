@@ -1,18 +1,15 @@
 package org.example.terminal;
 
-import com.stripe.param.PaymentIntentCreateParams;
-import com.stripe.param.PaymentLinkCreateParams;
 import com.stripe.stripeterminal.Terminal;
-import com.stripe.stripeterminal.external.callable.Callback;
 import com.stripe.stripeterminal.external.callable.Cancelable;
 import com.stripe.stripeterminal.external.callable.ReaderCallback;
+import com.stripe.stripeterminal.external.callable.ReadersCallback;
 import com.stripe.stripeterminal.external.callable.RefundCallback;
 import com.stripe.stripeterminal.external.models.*;
 import com.stripe.stripeterminal.log.LogLevel;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -26,18 +23,16 @@ public class StripeTerminal {
   }
 
   public CompletableFuture<List<Reader>> discoverReaders() {
-    List<Reader> readers = Collections.synchronizedList(new ArrayList<>());
     CompletableFuture<List<Reader>> f = new CompletableFuture<>();
 
     Terminal.getInstance()
         .discoverReaders(
             new DiscoveryConfiguration(),
-            readers::addAll,
-            new Callback() {
+            new ReadersCallback() {
               @Override
-              public void onSuccess() {
+              public void onSuccess(@NotNull List<Reader> list) {
                 // complete future with the discovered readers
-                f.complete(readers);
+                f.complete(list);
               }
 
               @Override
@@ -55,7 +50,7 @@ public class StripeTerminal {
     Terminal.getInstance()
         .connectInternetReader(
             reader,
-            new ConnectionConfiguration.InternetConnectionConfiguration(/*fail_if_in_use*/ true),
+            new InternetConnectionConfiguration(/*fail_if_in_use*/ true),
             new ReaderCallback() {
               @Override
               public void onSuccess(@NotNull Reader reader) {
