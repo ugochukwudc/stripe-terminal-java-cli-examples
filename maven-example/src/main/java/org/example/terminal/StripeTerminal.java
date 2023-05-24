@@ -102,8 +102,16 @@ public class StripeTerminal {
   // region Take Payment
   private CompletableFuture<PaymentIntent> createPayment(@NotNull String currency) {
     PaymentIntentFuture f = new PaymentIntentFuture();
+    List<PaymentMethodType> paymentMethodTypes = new ArrayList<>();
+    paymentMethodTypes.add(PaymentMethodType.CARD_PRESENT);
+    long amount = 10_000L;
+    if (currency.equals("cad")) { // add Interac as a payment method for canadian dollars
+      paymentMethodTypes.add(PaymentMethodType.INTERAC_PRESENT);
+    }
     PaymentIntentParameters parameters =
-        new PaymentIntentParameters.Builder(/*amount*/ 10000L, currency, CaptureMethod.Automatic).build();
+        new PaymentIntentParameters
+                .Builder(amount, currency, CaptureMethod.Automatic, paymentMethodTypes)
+                .build();
     Terminal.getInstance().createPaymentIntent(parameters, f);
     return f;
   }
