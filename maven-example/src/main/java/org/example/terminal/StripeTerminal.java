@@ -1,12 +1,14 @@
 package org.example.terminal;
 
 import com.stripe.stripeterminal.Terminal;
+import com.stripe.stripeterminal.appinfo.ApplicationInformation;
 import com.stripe.stripeterminal.external.callable.Cancelable;
 import com.stripe.stripeterminal.external.callable.ReaderCallback;
 import com.stripe.stripeterminal.external.callable.ReadersCallback;
 import com.stripe.stripeterminal.external.callable.RefundCallback;
 import com.stripe.stripeterminal.external.models.*;
 import com.stripe.stripeterminal.log.LogLevel;
+import org.example.AppUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -17,8 +19,14 @@ import java.util.concurrent.ExecutionException;
 /** Wrapper class for the Terminal object. */
 public class StripeTerminal {
   public StripeTerminal() {
+    String appName = "org.example.ugoTestCliMavenApp";
     if (!Terminal.isInitialized()) {
-      Terminal.initTerminal(new TokenProvider(), new Listener(), LogLevel.ERROR);
+      Terminal.initTerminal(
+              new TokenProvider(),
+              new Listener(),
+              new ApplicationInformation(appName, "1.0.0", AppUtils.appDataDirectory(appName)),
+              LogLevel.VERBOSE
+      );
     }
   }
 
@@ -95,8 +103,7 @@ public class StripeTerminal {
   private CompletableFuture<PaymentIntent> createPayment(@NotNull String currency) {
     PaymentIntentFuture f = new PaymentIntentFuture();
     PaymentIntentParameters parameters =
-        new PaymentIntentParameters.Builder(/*amount*/ 10000L, currency, CaptureMethod.Automatic)
-            .build();
+        new PaymentIntentParameters.Builder(/*amount*/ 10000L, currency, CaptureMethod.Automatic).build();
     Terminal.getInstance().createPaymentIntent(parameters, f);
     return f;
   }
@@ -104,8 +111,9 @@ public class StripeTerminal {
   private CompletableFuture<PaymentIntent> collectPaymentMethod(
       @NotNull PaymentIntent paymentIntent) {
     PaymentIntentFuture f = new PaymentIntentFuture();
+    // Add
     CollectConfiguration config = new CollectConfiguration.Builder().build();
-    Cancelable cancelable = Terminal.getInstance().collectPaymentMethod(paymentIntent, f, config);
+    Cancelable cancelable = Terminal.getInstance().collectPaymentMethod(paymentIntent, config, f);
     return f;
   }
 
