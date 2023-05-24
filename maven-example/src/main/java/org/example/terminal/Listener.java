@@ -15,18 +15,18 @@ public class Listener implements TerminalListener {
 
   @Override
   public void onConnectionStatusChange(@NotNull ConnectionStatus status) {
-    TerminalListener.super.onConnectionStatusChange(status);
     System.out.printf("onConnectionStatusChange from %1$s -> %2$s\n", connectionStatus, status);
+    connectionStatus = status;
   }
 
   @Override
   public void onPaymentStatusChange(@NotNull PaymentStatus status) {
-    TerminalListener.super.onPaymentStatusChange(status);
     System.out.printf("onPaymentStatusChange from %1$s -> %2$s\n", paymentStatus, status);
+    paymentStatus = status;
   }
 
   @Override
   public void onUnexpectedReaderDisconnect(@NotNull Reader reader) {
-    System.out.printf("onUnexpectedReaderDisconnect from %1$s", reader);
+    throw new RuntimeException(String.format("onUnexpectedReaderDisconnect from %1$s", reader));
   }
 }
