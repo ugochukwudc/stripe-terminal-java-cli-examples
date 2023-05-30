@@ -27,7 +27,9 @@ public class App {
         apiClient.setUp(sc);
         // Initialize the Stripe Terminal
         StripeTerminal terminal = new StripeTerminal();
-        List<Reader> readerList = terminal.discoverReaders().get();
+        System.out.println("Use simulated readers: (Y/N): ");
+        boolean simulated = sc.nextLine().equalsIgnoreCase("Y");
+        List<Reader> readerList = terminal.discoverReaders(simulated).get();
 
         Reader reader = selectReader(readerList);
         System.out.printf("Connecting to reader: %s \n", reader);

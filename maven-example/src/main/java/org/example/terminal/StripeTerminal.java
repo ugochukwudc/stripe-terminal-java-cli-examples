@@ -30,12 +30,20 @@ public class StripeTerminal {
     }
   }
 
-  public CompletableFuture<List<Reader>> discoverReaders() {
+  public CompletableFuture<List<Reader>> discoverReaders(boolean simulated) {
     CompletableFuture<List<Reader>> f = new CompletableFuture<>();
+
+    if (simulated) {
+      long simulatedFixedTipAmount = 1000L;
+      SimulatorConfiguration simulatorConfig =
+          new SimulatorConfiguration(
+              new SimulatedCard(SimulatedCardType.AMEX), simulatedFixedTipAmount);
+      Terminal.getInstance().setSimulatorConfiguration(simulatorConfig);
+    }
 
     Terminal.getInstance()
         .discoverReaders(
-            new DiscoveryConfiguration(),
+            new DiscoveryConfiguration(simulated),
             new ReadersCallback() {
               @Override
               public void onSuccess(@NotNull List<Reader> list) {
