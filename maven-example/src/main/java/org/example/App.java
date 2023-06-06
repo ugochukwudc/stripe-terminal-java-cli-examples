@@ -106,10 +106,12 @@ public class App {
      */
     private static boolean isReachable(Reader reader) {
         try {
-            return InetAddress.getByName(reader.getIpAddress()).isReachable(100);
+            String ip = Objects.requireNonNull(reader.getIpAddress());
+            return InetAddress.getByAddress(AppUtils.parseIpAddress(ip)).isReachable(100);
         } catch (IOException e) {
             e.printStackTrace();
         }
         return false;
     }
+
 }
