@@ -10,11 +10,15 @@ import com.stripe.stripeterminal.external.models.*;
 import com.stripe.stripeterminal.log.LogLevel;
 import org.example.AppUtils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+
+import static com.stripe.model.StripeObject.PRETTY_PRINT_GSON;
 
 /** Wrapper class for the Terminal object. */
 public class StripeTerminal {
@@ -25,7 +29,7 @@ public class StripeTerminal {
               new TokenProvider(),
               new Listener(),
               new ApplicationInformation(appName, "1.0.0", AppUtils.appDataDirectory(appName)),
-              LogLevel.VERBOSE
+              LogLevel.INFO
       );
     }
   }
@@ -119,8 +123,11 @@ public class StripeTerminal {
     PaymentIntentParameters parameters =
         new PaymentIntentParameters
                 .Builder(amount, currency, CaptureMethod.Automatic, paymentMethodTypes)
+                // set metadata to identify the payment  when it is forwarded
+                .setMetadata(Map.of("store-payment-id", "very-unique-id"))
                 .build();
-    Terminal.getInstance().createPaymentIntent(parameters, f);
+    CreateConfiguration configuration = new CreateConfiguration(OfflineBehavior.PREFER_ONLINE);
+    Terminal.getInstance().createPaymentIntent(parameters, configuration, f);
     return f;
   }
 
@@ -128,7 +135,7 @@ public class StripeTerminal {
       @NotNull PaymentIntent paymentIntent) {
     PaymentIntentFuture f = new PaymentIntentFuture();
     // Add
-    CollectConfiguration config = new CollectConfiguration.Builder().build();
+    CollectConfiguration config = new CollectConfiguration.Builder().setMoto(true).build();
     Cancelable cancelable = Terminal.getInstance().collectPaymentMethod(paymentIntent, config, f);
     return f;
   }
@@ -142,7 +149,7 @@ public class StripeTerminal {
   private CompletableFuture<PaymentIntent> processPaymentIntent(
       @NotNull PaymentIntent paymentIntent) {
     PaymentIntentFuture f = new PaymentIntentFuture();
-    Terminal.getInstance().processPayment(paymentIntent, f);
+    Terminal.getInstance().confirmPaymentIntent(paymentIntent, f);
     return f;
   }
 
@@ -170,6 +177,18 @@ public class StripeTerminal {
     paymentIntent = collectPaymentMethod(paymentIntent).get();
     paymentIntent = processPaymentIntent(paymentIntent).get();
     return paymentIntent;
+  }
+
+  public void printOfflineStatus() {
+    prettyPrint(Terminal.getInstance().getOfflineStatus());
+  }
+
+  /**
+   * Prints a beautified string of the object using GSON.
+   * @param object to beautify and print
+   */
+  private void prettyPrint(@Nullable Object object){
+    System.out.println(PRETTY_PRINT_GSON.toJson(object));
   }
   // endregion Take Payment
 
@@ -227,7 +246,7 @@ public class StripeTerminal {
     RefundParameters parameters = new RefundParameters.Builder(chargeId, amount, currency).build();
     Terminal.getInstance().collectRefundPaymentMethod(parameters, collectRefundFuture);
     collectRefundFuture.get();
-    Terminal.getInstance().processRefund(new RefundCallback() {
+    Terminal.getInstance().confirmRefund(new RefundCallback() {
       @Override
       public void onSuccess(@NotNull Refund refund) {
         processRefundFuture.complete(refund);
