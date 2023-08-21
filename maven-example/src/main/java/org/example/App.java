@@ -19,11 +19,10 @@ import static com.stripe.model.StripeObject.PRETTY_PRINT_GSON;
 
 public class App {
   private static final String MENU =
-      "1 - Collect Payment(Client side) \n2 - Collect Payment(Server side) \n3 - Save Card(Client side) \n4 - Save Card(Server side) \n5 - Display Cart \n6 - Clear Display \n7 - Refund \n8 - Disconnect Reader \n9 - Query Offline Status";
+      "1 - Collect Payment(Client side) \n2 - Collect Payment(Server side) \n3 - Save Card(Client side) \n4 - Save Card(Server side) \n5 - Display Cart \n6 - Clear Display \n7 - Refund \n8 - Query Offline Status\n9 - Disconnect Reader\n";
 
   public static void main(String[] args)
       throws BackingStoreException, ExecutionException, InterruptedException, SocketException {
-    displayNetworkState();
     ApiClient apiClient = new ApiClient();
     System.out.println("Hello world!");
     Scanner sc = new Scanner(System.in);
@@ -31,10 +30,11 @@ public class App {
         .addShutdownHook(new Thread(() -> System.out.println("Shutting down VM...")));
 
     // Set up application with secret key
+    System.out.println("Initializing...");
     apiClient.setUp(sc);
     // Initialize the Stripe Terminal
     StripeTerminal terminal = new StripeTerminal();
-    System.out.println("Use simulated readers: (Y/N): ");
+    System.out.print("Use simulated readers: (Y/N): ");
     boolean simulated = sc.nextLine().equalsIgnoreCase("Y");
     List<Reader> readerList = terminal.discoverReaders(simulated).get();
 
@@ -46,14 +46,8 @@ public class App {
     do {
       selection = getMenuItem(sc);
       switch (selection) {
-        case 1 -> {
-          PaymentIntent pi = terminal.takePaymentClientSideCreate(apiClient.getCurrency());
-          System.out.println("Collected PI: " + PRETTY_PRINT_GSON.toJson(pi));
-        }
-        case 2 -> {
-          PaymentIntent pi = terminal.takePaymentServerSideCreate(getClientSecret(sc));
-          System.out.println("Collected PI: " + PRETTY_PRINT_GSON.toJson(pi));
-        }
+        case 1 -> terminal.takePaymentClientSideCreate(apiClient.getCurrency());
+        case 2 -> terminal.takePaymentServerSideCreate(getClientSecret(sc));
         case 3 -> terminal.saveCardClientSideCreate();
         case 4 -> terminal.saveCardServerSideCreate(getClientSecret(sc));
         case 5 -> terminal.displayCart(apiClient.getCurrency());
@@ -65,14 +59,14 @@ public class App {
           long amount = sc.nextLong();
           terminal.refund(chargeId, apiClient.getCurrency(), amount);
         }
-        case 9 -> terminal.printOfflineStatus();
+        case 8 -> terminal.printOfflineStatus();
         default -> {
           System.out.println("Disconnecting reader");
           terminal.disconnectReader();
           System.out.println("Successfully disconnected");
         }
       }
-    } while (selection >= 1 && selection <= 7);
+    } while (selection >= 1 && selection <= 8);
     sc.close();
   }
 
