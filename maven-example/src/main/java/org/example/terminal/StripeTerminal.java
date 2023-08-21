@@ -23,12 +23,14 @@ import static com.stripe.model.StripeObject.PRETTY_PRINT_GSON;
 public class StripeTerminal {
   public StripeTerminal() {
     String appName = "org.example.ugoTestCliMavenApp";
+    Listener listener = new Listener();
     if (!Terminal.isInitialized()) {
       Terminal.initTerminal(
           new TokenProvider(),
-          new Listener(),
+          listener,
           new ApplicationInformation(appName, "1.0.0", AppUtils.appDataDirectory(appName)),
-          LogLevel.INFO);
+          LogLevel.INFO,
+          listener);
     }
   }
 
@@ -130,7 +132,8 @@ public class StripeTerminal {
         new PaymentIntentParameters.Builder(
                 amount, currency, CaptureMethod.Automatic, paymentMethodTypes)
             // set metadata to identify the payment  when it is forwarded
-            .setMetadata(Map.of("store-payment-id", UUID.randomUUID().toString(), "key", "ugo-offline"))
+            .setMetadata(
+                Map.of("store-payment-id", UUID.randomUUID().toString(), "key", "ugo-offline"))
             .build();
     CreateConfiguration configuration = new CreateConfiguration(getOfflineBehavior(amount));
     Terminal.getInstance().createPaymentIntent(parameters, configuration, f);
