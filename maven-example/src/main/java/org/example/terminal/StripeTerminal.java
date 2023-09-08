@@ -16,6 +16,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 
 import static com.stripe.model.StripeObject.PRETTY_PRINT_GSON;
 
@@ -287,6 +288,16 @@ public class StripeTerminal {
     return processRefundFuture.get();
   }
 
+  // region Collect Inputs
+  public List<? extends CollectInputsResult> collectInputs(
+      @NotNull CollectInputsParameters parameters) throws Throwable {
+    CollectInputsFuture f = new CollectInputsFuture();
+    Cancelable c = Terminal.getInstance().collectInputs(parameters, f);
+    return getOrThrow(f);
+  }
+
+  // endregion Collect Inputs
+
   public void printOfflineStatus() {
     prettyPrint(Terminal.getInstance().getOfflineStatus());
   }
@@ -302,5 +313,15 @@ public class StripeTerminal {
       System.out.print("Offline Details: ");
       prettyPrint(((PaymentIntent) object).getOfflineDetails());
     }
+  }
+
+  private <T> T getOrThrow(CompletableFuture<T> future) throws Throwable {
+    T obj;
+    try {
+      obj = future.get();
+    } catch (ExecutionException e) {
+      throw e.getCause();
+    }
+    return obj;
   }
 }
