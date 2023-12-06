@@ -4,8 +4,13 @@ import com.google.gson.JsonSyntaxException;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Account;
+import com.stripe.model.Charge;
+import com.stripe.model.PaymentIntent;
+import com.stripe.param.ChargeSearchParams;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -81,6 +86,20 @@ public class ApiClient {
 
   public @NotNull String getCurrency() {
     return account.getDefaultCurrency();
+  }
+
+  @SuppressWarnings("OptionalGetWithoutIsPresent")
+  public @NotNull Charge getRefundableCharge() throws StripeException {
+    return Charge.search(ChargeSearchParams
+                    .builder()
+                    .setLimit(10L)
+                    .setQuery("amount>1000 AND currency:\"cad\" AND refunded:\"false\"")
+                    .build()
+            ).getData()
+            .stream()
+            .filter(charge -> charge.getPaymentMethodDetails().getType().equals("interac_present"))
+            .findFirst()
+            .get();
   }
 
   private void promptForSecretKey(Scanner sc) throws BackingStoreException {
