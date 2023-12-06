@@ -13,7 +13,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.prefs.BackingStoreException;
 
 @Timeout(60)
-public class StripeTerminalCollectInputsTests {
+public class StripeTerminalCollectInputsTests extends StripeTerminalTests {
   private static final String VERY_LONG_STRING =
       """
           This is a very long string that which we want to use for testing forms inputs string threshold to ensure that
@@ -21,32 +21,7 @@ public class StripeTerminalCollectInputsTests {
           the reader has limited real estate so we need to be efficient with how we use the screen space. This surely
           exceeds the maximum, and can be reused for tests seeking to check that max. Thanks!
           """;
-  private static final String TEST_READER_LABEL = "WPE3";
-  private static StripeTerminal terminal;
 
-  @BeforeAll
-  static void initializeStripeTerminal() throws BackingStoreException {
-    ApiClient apiClient = new ApiClient();
-    Scanner sc = new Scanner("Y"); // Use Y so we can auto advance on setup.
-    apiClient.setUp(sc);
-    terminal = new StripeTerminal();
-    sc.close();
-  }
-
-  @BeforeEach
-  void connectToTestReader() throws Throwable {
-    List<Reader> readerList = terminal.discoverReaders(false).get();
-    terminal.connectReader(
-        readerList.stream()
-            .filter(reader -> Objects.equals(reader.getLabel(), TEST_READER_LABEL))
-            .findFirst()
-            .get());
-  }
-
-  @AfterEach
-  void disconnectFromTestReader() throws Throwable {
-    terminal.disconnectReader();
-  }
 
   @Test
   void testCollectInputsWith10Inputs() {
