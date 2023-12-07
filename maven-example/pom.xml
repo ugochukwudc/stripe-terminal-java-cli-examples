@@ -18,7 +18,7 @@
         <dependency>
             <groupId>com.stripe</groupId>
             <artifactId>stripeterminal-java</artifactId>
-            <version>1.0.0-b1</version>
+            <version>1.0.0-b5</version>
         </dependency>
         <dependency>
             <groupId>com.stripe</groupId>
@@ -35,6 +35,11 @@
             <artifactId>junit-jupiter</artifactId>
             <version>RELEASE</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
         </dependency>
     </dependencies>
 
