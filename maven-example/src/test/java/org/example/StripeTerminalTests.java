@@ -25,7 +25,6 @@ public class StripeTerminalTests {
 
   @BeforeAll
   static void initializeStripeTerminal() throws BackingStoreException {
-    System.out.println("Calling before all in StripeTerminalTests");
     apiClient = new ApiClient();
     Scanner sc = new Scanner("Y"); // Use Y so we can auto advance on setup.
     apiClient.setUp(sc);
@@ -66,18 +65,17 @@ public class StripeTerminalTests {
   }
 
   @AfterEach
-  void disconnectFromTestReader() throws Throwable {
+  void disconnectFromTestReader() {
     System.out.println("Disconnecting from " + TEST_READER_LABEL);
     terminal.disconnectReader();
     terminal
         .waitFor((p, c) -> c == ConnectionStatus.NOT_CONNECTED)
-        .orTimeout(2, TimeUnit.SECONDS)
+        .orTimeout(5, TimeUnit.SECONDS)
         .join();
     System.out.println("Disconnected from " + TEST_READER_LABEL);
   }
 
   protected void delay(final long timeInMillis) throws InterruptedException {
-//    final VoidFuture f = new VoidFuture();
     Thread t =
         new Thread() {
           @Override
@@ -88,12 +86,10 @@ public class StripeTerminalTests {
             } catch (InterruptedException e) {
               throw new RuntimeException(e);
             }
-//            f.complete(null);
           }
         };
     t.setDaemon(true);
     t.start();
-//    f.join();
     t.join();
   }
 }

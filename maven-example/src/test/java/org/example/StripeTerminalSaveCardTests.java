@@ -67,6 +67,15 @@ public class StripeTerminalSaveCardTests extends StripeTerminalTests {
     Assertions.assertNull(confirmedSetupIntent.getCustomerId());
     Assertions.assertEquals("test card", confirmedSetupIntent.getDescription());
     Assertions.assertNotNull(confirmedSetupIntent.getId());
+    System.out.printf(
+      """
+      ==================================================================================================================
+      Confirmed Setup Intent:
+      params => %s
+      Setup Intent => %s
+      ==================================================================================================================
+      """, parameters, confirmedSetupIntent
+    );
   }
 
   @Test

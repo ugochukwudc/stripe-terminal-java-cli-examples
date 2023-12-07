@@ -378,4 +378,9 @@ public class StripeTerminal implements IStripeTerminal{
   public @NotNull VoidFuture waitFor(BiPredicate<PaymentStatus, ConnectionStatus> predicate) {
     return listener.waitFor(predicate);
   }
+
+  @Override
+  public @NotNull VoidFuture waitForForwarding(BiPredicate<PaymentIntent, TerminalException> predicate) {
+    return listener.waitForForwarding(predicate);
+  }
 }

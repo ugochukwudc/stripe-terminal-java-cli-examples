@@ -1,16 +1,9 @@
 package org.example;
 
 import com.stripe.stripeterminal.external.models.*;
-import org.example.network.ApiClient;
-import org.example.terminal.StripeTerminal;
-import org.junit.jupiter.api.*;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.Scanner;
-import java.util.concurrent.ExecutionException;
-import java.util.prefs.BackingStoreException;
+import org.junit.jupiter.api.*;
 
 @Timeout(60)
 public class StripeTerminalCollectInputsTests extends StripeTerminalTests {

@@ -11,9 +11,11 @@ import java.util.*;
 import java.util.concurrent.CompletionException;
 import org.example.terminal.RefundFuture;
 import org.example.terminal.VoidFuture;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class StripeTerminalInteracRefundTest extends StripeTerminalTests {
   private static Charge refundableCharge;
@@ -22,18 +24,17 @@ public class StripeTerminalInteracRefundTest extends StripeTerminalTests {
 
   @BeforeAll
   static void initializeRefundablePaymentIntents() throws StripeException {
-    System.out.println("Calling before all in refunds tests!");
     refundableCharge = apiClient.getRefundableCharge();
   }
 
-  @Test
-  void testRefundWithChargeId() {
+  @MethodSource("testParameters")
+  @ParameterizedTest
+  void testRefundCharge(@NotNull RefundParameters.Id refundID) {
     VoidFuture collectFuture = new VoidFuture();
     RefundConfiguration configuration =
         new RefundConfiguration.Builder().setEnableCustomerCancellation(false).build();
     RefundParameters refundParameters =
-        new RefundParameters.Builder(
-                refundableCharge.getId(), 100L, refundableCharge.getCurrency())
+        new RefundParameters.Builder(refundID, 100L, refundableCharge.getCurrency())
             .setMetadata(metaData)
             .build();
     terminal
@@ -47,13 +48,19 @@ public class StripeTerminalInteracRefundTest extends StripeTerminalTests {
     Assertions.assertEquals(refundParameters.getAmount(), refund.getAmount());
     Assertions.assertEquals(refundParameters.getCurrency(), refund.getCurrency());
     Assertions.assertEquals(metaData, refund.getMetadata());
+    System.out.printf(
+    """
+    ========================================================================================================================
+    Refunding $1.00 of %s => confirmed Refund = %s
+    ========================================================================================================================
+    """, refundID, refund);
   }
 
-  @Test
-  void testProgrammaticCancel() throws InterruptedException {
+  @MethodSource("testParameters")
+  @ParameterizedTest
+  void testProgrammaticCancel(@NotNull RefundParameters.Id refundID) throws InterruptedException {
     RefundParameters refundParameters =
-        new RefundParameters.Builder(
-                refundableCharge.getId(), 100L, refundableCharge.getCurrency())
+        new RefundParameters.Builder(refundID, 100L, refundableCharge.getCurrency())
             .setMetadata(metaData)
             .build();
     VoidFuture collectFuture = new VoidFuture();
@@ -78,12 +85,12 @@ public class StripeTerminalInteracRefundTest extends StripeTerminalTests {
     }
   }
 
-  @Test
-  void testCustomerCancel() {
+  @MethodSource("testParameters")
+  @ParameterizedTest
+  void testCustomerCancel(@NotNull RefundParameters.Id refundID) {
     VoidFuture collectFuture = new VoidFuture();
     RefundParameters refundParameters =
-        new RefundParameters.Builder(
-                refundableCharge.getId(), 100L, refundableCharge.getCurrency())
+        new RefundParameters.Builder(refundID, 100L, refundableCharge.getCurrency())
             .setMetadata(metaData)
             .build();
     RefundConfiguration configuration =
@@ -100,5 +107,12 @@ public class StripeTerminalInteracRefundTest extends StripeTerminalTests {
           TerminalException.TerminalErrorCode.CANCELED,
           ((TerminalException) e.getCause()).getErrorCode());
     }
+  }
+
+  static List<RefundParameters.Id> testParameters(){
+    return List.of(
+            new RefundParameters.Id.Charge(refundableCharge.getId()),
+            new RefundParameters.Id.PaymentIntent(refundableCharge.getPaymentIntent())
+    );
   }
 }

@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /** A simple {@link TerminalListener} implementation that just logs events to the console. */
+@SuppressWarnings("CallToPrintStackTrace")
 public class Listener implements TerminalListener, OfflineListener, TerminalStatus {
   private ConnectionStatus connectionStatus = null;
   private PaymentStatus paymentStatus = null;
@@ -19,6 +20,7 @@ public class Listener implements TerminalListener, OfflineListener, TerminalStat
 
   private final ArrayList<ConnectionAndPaymentStatusWaiter> connectionAndPaymentStatusWaiters = new ArrayList<>();
   private final ArrayList<OfflineStatusWaiter> offlineStatusWaiters = new ArrayList<>();
+  private final ArrayList<PaymentForwardingWaiter> paymentForwardingWaiters = new ArrayList<>();
 
   @Nullable
   @Override
@@ -64,6 +66,39 @@ public class Listener implements TerminalListener, OfflineListener, TerminalStat
   }
 
   @Override
+  public void onForwardingFailure(@NotNull TerminalException e) {
+    testPaymentForwardingWaiters(null, e);
+    System.err.println("Encountered error while forwarding: " + e.getErrorCode());
+    e.printStackTrace();
+  }
+
+  @Override
+  public void onPaymentIntentForwarded(@NotNull PaymentIntent paymentIntent, @Nullable TerminalException e) {
+    testPaymentForwardingWaiters(paymentIntent, e);
+    if (e != null) {
+      System.err.printf(
+      """
+      =========================================================================================================================
+      Encountered error while forwarding
+      Payment Intent : %s
+      Offline Details: %s
+      Error code: %s
+      =========================================================================================================================
+      """, paymentIntent, paymentIntent.getOfflineDetails(), e.getErrorCode());
+      e.printStackTrace();
+    } else {
+      System.out.printf(
+      """
+      ==========================================================================================================================
+      Successful Forward!
+      Payment Intent: %s
+      Offline Details: %s
+      ==========================================================================================================================
+      """, paymentIntent, paymentIntent.getOfflineDetails());
+    }
+  }
+
+  @Override
   public @NotNull VoidFuture waitForOfflineStatus(Predicate<OfflineStatus> predicate) {
     OfflineStatusWaiter waiter = new OfflineStatusWaiter(predicate);
     offlineStatusWaiters.add(waiter);
@@ -76,6 +111,13 @@ public class Listener implements TerminalListener, OfflineListener, TerminalStat
     ConnectionAndPaymentStatusWaiter waiter = new ConnectionAndPaymentStatusWaiter(predicate);
     connectionAndPaymentStatusWaiters.add(waiter);
     testPaymentAndConnectionStatusWaiters(getPaymentStatus(), getConnectionStatus());
+    return waiter.future;
+  }
+
+  @Override
+  public @NotNull VoidFuture waitForForwarding(BiPredicate<PaymentIntent, TerminalException> predicate) {
+    PaymentForwardingWaiter waiter = new PaymentForwardingWaiter(predicate);
+    paymentForwardingWaiters.add(waiter);
     return waiter.future;
   }
 
@@ -93,6 +135,7 @@ public class Listener implements TerminalListener, OfflineListener, TerminalStat
   private void testPaymentAndConnectionStatusWaiters(@Nullable PaymentStatus paymentStatus, @Nullable ConnectionStatus connectionStatus) {
     Iterator<ConnectionAndPaymentStatusWaiter> iterator = connectionAndPaymentStatusWaiters.iterator();
     while (iterator.hasNext()) {
+      System.out.printf("testing connection status waiters with payment status = %s, connection status = %s \n", paymentStatus, connectionStatus);
       ConnectionAndPaymentStatusWaiter waiter = iterator.next();
       if (waiter.paymentStatusConnectionStatusBiPredicate.test(paymentStatus, connectionStatus)) {
         waiter.future.complete(null);
@@ -101,11 +144,22 @@ public class Listener implements TerminalListener, OfflineListener, TerminalStat
     }
   }
 
-  class StatusWaiter {
+  private void testPaymentForwardingWaiters(@Nullable PaymentIntent paymentIntent, @Nullable TerminalException error) {
+    Iterator<PaymentForwardingWaiter> iterator = paymentForwardingWaiters.iterator();
+    while (iterator.hasNext()) {
+      PaymentForwardingWaiter waiter = iterator.next();
+      if (waiter.paymentForwardingPredicate.test(paymentIntent, error)) {
+        waiter.future.complete(null);
+        iterator.remove();
+      }
+    }
+  }
+
+  static class StatusWaiter {
     final VoidFuture future = new VoidFuture();
   }
 
-  class OfflineStatusWaiter extends StatusWaiter {
+  static class OfflineStatusWaiter extends StatusWaiter {
     final Predicate<OfflineStatus> offlineStatusPredicate;
 
     OfflineStatusWaiter(Predicate<OfflineStatus> predicate) {
@@ -114,12 +168,21 @@ public class Listener implements TerminalListener, OfflineListener, TerminalStat
     }
   }
 
-  class ConnectionAndPaymentStatusWaiter extends StatusWaiter {
+  static class ConnectionAndPaymentStatusWaiter extends StatusWaiter {
     final BiPredicate<PaymentStatus, ConnectionStatus> paymentStatusConnectionStatusBiPredicate;
 
     ConnectionAndPaymentStatusWaiter(BiPredicate<PaymentStatus, ConnectionStatus> biPredicate) {
       super();
       paymentStatusConnectionStatusBiPredicate = biPredicate;
+    }
+  }
+
+  static class PaymentForwardingWaiter extends StatusWaiter {
+    final BiPredicate<PaymentIntent, TerminalException> paymentForwardingPredicate;
+
+    PaymentForwardingWaiter(BiPredicate<PaymentIntent, TerminalException>biPredicate) {
+      super();
+      paymentForwardingPredicate = biPredicate;
     }
   }
 }

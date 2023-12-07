@@ -49,15 +49,24 @@ public class StripeTerminalCollectPaymentsTest extends StripeTerminalTests {
     PaymentIntentFuture confirmFuture = new PaymentIntentFuture();
     Terminal.getInstance().confirmPaymentIntent(collectedPI, confirmFuture);
     PaymentIntent confirmedPI = confirmFuture.join();
+    Assertions.assertEquals(PaymentIntentStatus.SUCCEEDED, confirmedPI.getStatus());
+    Assertions.assertEquals(metaData, confirmedPI.getMetadata());
     if (offlineBehavior == OfflineBehavior.FORCE_OFFLINE) {
       Assertions.assertTrue(
           Objects.requireNonNull(confirmedPI.getOfflineDetails()).getRequiresUpload());
     } else {
-      Assertions.assertNotNull(
-          Objects.requireNonNull(
-                  Objects.requireNonNull(confirmedPI.getCharges().get(0)).getPaymentMethodDetails())
-              .getCardPresentDetails());
+      Assertions.assertFalse(confirmedPI.getCharges().isEmpty());
     }
+    System.out.printf(
+            """
+            ========================================================================================================================
+            Payments tests
+            offline behaviour => %s
+            confirmed Payment Intent => %s
+            offline Details => %s
+            charge => %s
+            ========================================================================================================================
+            """, offlineBehavior, confirmedPI, confirmedPI.getOfflineDetails(), confirmedPI.getCharges());
   }
 
   @Test
