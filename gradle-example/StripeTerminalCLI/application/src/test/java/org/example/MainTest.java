@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MainTest {
     @Test()
-    public void getTerminalBeforeIntFailsWithIllegalStateException() {
+    public void getTerminalBeforeInitFailsWithIllegalStateException() {
         assertThrows(IllegalStateException.class, Terminal::getInstance);
     }
 }
