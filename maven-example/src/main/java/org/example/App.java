@@ -1,28 +1,44 @@
 package org.example;
 
-import com.stripe.stripeterminal.external.models.PaymentIntent;
 import com.stripe.stripeterminal.external.models.Reader;
-import org.example.network.ApiClient;
-import org.example.terminal.StripeTerminal;
-import org.jetbrains.annotations.Nullable;
-
+import com.stripe.stripeterminal.external.models.TerminalException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.*;
 import java.util.prefs.BackingStoreException;
-
-import static com.stripe.model.StripeObject.PRETTY_PRINT_GSON;
+import org.example.network.ApiClient;
+import org.example.terminal.StripeTerminal;
+import org.jetbrains.annotations.Nullable;
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
 
 public class App {
-  private static final String MENU =
-      "1 - Collect Payment(Client side) \n2 - Collect Payment(Server side) \n3 - Save Card(Client side) \n4 - Save Card(Server side) \n5 - Display Cart \n6 - Clear Display \n7 - Refund \n8 - Query Offline Status\n9 - Disconnect Reader\n";
+  private static final String MENU = """
+        1 - Take Payment Client Side Create
+        2 - Take Payment Server Side Create
+        3 - Save Card Client Side Create
+        4 - Save Card Server Side Create
+        5 - Display Cart
+        6 - Clear Reader Display
+        7 - Refund
+        8 - Print Offline Status
+        9 - Reboot Reader
+        10 - Install Updates
+        11 - Disconnect Reader
+        12 - Exit
+""";
+  private static final String DISCOVERY_MENU = """
+        Select Option for discover or enter the serial number of the reader you want to connect to:
+        1 - Discover Internet Readers
+        2 - Discover Internet Simulators
+        3 - Discover Usb Readers
+""";
 
   public static void main(String[] args)
-      throws BackingStoreException, ExecutionException, InterruptedException, SocketException {
+      throws BackingStoreException, ExecutionException, InterruptedException, SocketException, TimeoutException, TerminalException {
     ApiClient apiClient = new ApiClient();
     System.out.println("Hello world!");
     Scanner sc = new Scanner(System.in);
@@ -34,13 +50,41 @@ public class App {
     apiClient.setUp(sc);
     // Initialize the Stripe Terminal
     StripeTerminal terminal = new StripeTerminal();
-    System.out.print("Use simulated readers: (Y/N): ");
-    boolean simulated = sc.nextLine().equalsIgnoreCase("Y");
-    List<Reader> readerList = terminal.discoverReaders(simulated).get();
 
-    Reader reader = selectReader(readerList);
-    System.out.printf("Connecting to reader: %s \n", reader);
-    terminal.connectReader(Objects.requireNonNull(reader)).get();
+    // Register a signal handler to intercept ctrl+c for cancelling ongoing operations
+    // like updates, reconnect, collects
+    SignalHandler handler =
+            signal -> {
+              System.out.println("Signal received: " + signal);
+              if (!terminal.cancelOnGoingOperation()) {
+                // Use the default signal handler
+                SignalHandler.SIG_DFL.handle(signal);
+              }
+            };
+
+    Signal.handle(new Signal("INT"), handler);
+    CompletableFuture<Reader> connectedReaderFuture = new CompletableFuture<>();
+    System.out.print(DISCOVERY_MENU);
+    String line = sc.nextLine().strip();
+      switch (line) {
+        case "1", "2" -> {
+          List<Reader> readerList = terminal.discoverInternetReaders(line.equals("2")).get();
+          Reader selectedReader = selectReader(readerList);
+          System.out.printf("Connecting to reader: %s \n", selectedReader);
+          connectedReaderFuture.complete(terminal.connectInternetReader(Objects.requireNonNull(selectedReader)).get());
+        }
+        case "3" -> {
+          terminal.discoverUsbReaders(readers -> {
+            Reader selectedReader = selectReader(readers);
+            System.out.printf("Connecting to reader: %s \n", selectedReader);
+            connectedReaderFuture.complete(terminal.connectUsbReader(Objects.requireNonNull(selectedReader)));
+          });
+        }
+        default -> connectedReaderFuture.complete(terminal.findReaderBySerialNumber(line));
+      }
+
+      // Get the connected reader, timeout after 60 seconds
+    Reader connectedReader = connectedReaderFuture.orTimeout(60, TimeUnit.SECONDS).join();
 
     int selection;
     do {
@@ -60,6 +104,8 @@ public class App {
           terminal.refund(chargeId, apiClient.getCurrency(), amount);
         }
         case 8 -> terminal.printOfflineStatus();
+        case 9 -> terminal.rebootReader();
+        case 10 -> terminal.installUpdates();
         default -> {
           System.out.println("Disconnecting reader");
           terminal.disconnectReader();
@@ -72,7 +118,7 @@ public class App {
 
   private static @Nullable Reader selectReader(List<Reader> readers) {
     System.out.printf("Found %d readers: \n", readers.size());
-    if (readers.size() == 0) return null; // bail early, no readers found
+    if (readers.isEmpty()) return null; // bail early, no readers found
     for (int i = 0; i < readers.size(); i++) {
       Reader reader = readers.get(i);
       System.out.printf(

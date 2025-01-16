@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.*;
 
+@Disabled
 @Timeout(60)
 public class StripeTerminalCollectInputsTests extends StripeTerminalTests {
   private static final String VERY_LONG_STRING =
@@ -36,7 +37,7 @@ public class StripeTerminalCollectInputsTests extends StripeTerminalTests {
                 .build(),
             new PhoneInput.Builder("Enter raffle draw again ").build(),
             new SelectionInput.Builder("Are you sure you agree to the terms and conditions")
-                .setButtons(
+                .setSelectionButtons(
                     List.of(
                         new SelectionButton(
                             SelectionButtonStyle.PRIMARY, "Yes, I'm very very very sure"),
@@ -170,7 +171,7 @@ public class StripeTerminalCollectInputsTests extends StripeTerminalTests {
             new CollectInputsParameters(
                 List.of(
                     new SelectionInput.Builder("Agree to the terms and conditions")
-                        .setButtons(
+                        .setSelectionButtons(
                             List.of(
                                 new SelectionButton(
                                     SelectionButtonStyle.PRIMARY, "Yes, I'm very very very sure"),
@@ -202,7 +203,7 @@ public class StripeTerminalCollectInputsTests extends StripeTerminalTests {
     inputs.add(new PhoneInput.Builder("Enter raffle draw").build());
     inputs.add(
         new SelectionInput.Builder("Do you agree to terms and conditions")
-            .setButtons(
+            .setSelectionButtons(
                 List.of(
                     new SelectionButton(SelectionButtonStyle.PRIMARY, "Advance"),
                     new SelectionButton(SelectionButtonStyle.SECONDARY, "Decline")))

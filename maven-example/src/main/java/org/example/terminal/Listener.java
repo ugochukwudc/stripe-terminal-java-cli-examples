@@ -53,11 +53,6 @@ public class Listener implements TerminalListener, OfflineListener, TerminalStat
   }
 
   @Override
-  public void onUnexpectedReaderDisconnect(@NotNull Reader reader) {
-    throw new RuntimeException(String.format("onUnexpectedReaderDisconnect from %1$s", reader));
-  }
-
-  @Override
   public void onOfflineStatusChange(@NotNull OfflineStatus offlineStatus) {
     System.out.printf(
         "onOfflineStatusChanged from %1$s -> %2$s.\n", this.offlineStatus, offlineStatus);

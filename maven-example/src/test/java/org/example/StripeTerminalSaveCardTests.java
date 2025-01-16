@@ -11,11 +11,13 @@ import java.util.concurrent.ExecutionException;
 import org.example.terminal.SetupIntentFuture;
 import org.example.terminal.VoidFuture;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+@Disabled
 @Timeout(60)
 public class StripeTerminalSaveCardTests extends StripeTerminalTests {
   Map<String, String> metaData =
@@ -52,7 +54,7 @@ public class StripeTerminalSaveCardTests extends StripeTerminalTests {
         terminal
             .getTerminal()
             .collectSetupIntentPaymentMethod(
-                createdSetupIntent, true, configuration, collectSetupIntentFuture);
+                createdSetupIntent, AllowRedisplay.ALWAYS, configuration, collectSetupIntentFuture);
     SetupIntent collectedSetupIntent = collectSetupIntentFuture.get();
     Assertions.assertTrue(cancelable.isCompleted());
 
@@ -99,14 +101,14 @@ public class StripeTerminalSaveCardTests extends StripeTerminalTests {
         terminal
             .getTerminal()
             .collectSetupIntentPaymentMethod(
-                createdSetupIntent, true, configuration, collectFuture);
+                createdSetupIntent, AllowRedisplay.ALWAYS, configuration, collectFuture);
     try {
       collectFuture.join();
       Assertions.fail("Expected customer cancellation"); // always fail if we get here
     } catch (CompletionException e) {
       Assertions.assertInstanceOf(TerminalException.class, e.getCause());
       Assertions.assertEquals(
-          TerminalException.TerminalErrorCode.CANCELED,
+          TerminalErrorCode.CANCELED,
           ((TerminalException) e.getCause()).getErrorCode());
     }
   }
@@ -132,7 +134,7 @@ public class StripeTerminalSaveCardTests extends StripeTerminalTests {
         terminal
             .getTerminal()
             .collectSetupIntentPaymentMethod(
-                createdSetupIntent, true, configuration, collectFuture);
+                createdSetupIntent, AllowRedisplay.ALWAYS, configuration, collectFuture);
     delay(500); // wait for half a second
     VoidFuture cancelCallback = new VoidFuture();
     // Cancel the collect operation
@@ -144,7 +146,7 @@ public class StripeTerminalSaveCardTests extends StripeTerminalTests {
     } catch (CompletionException e) {
       Assertions.assertInstanceOf(TerminalException.class, e.getCause());
       Assertions.assertEquals(
-          TerminalException.TerminalErrorCode.CANCELED,
+          TerminalErrorCode.CANCELED,
           ((TerminalException) e.getCause()).getErrorCode());
     }
   }

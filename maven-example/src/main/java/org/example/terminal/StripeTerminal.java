@@ -1,29 +1,33 @@
 package org.example.terminal;
 
+import static com.stripe.model.StripeObject.PRETTY_PRINT_GSON;
+import static com.stripe.model.terminal.Location.list;
+
+import com.stripe.exception.StripeException;
 import com.stripe.stripeterminal.Terminal;
 import com.stripe.stripeterminal.appinfo.ApplicationInformation;
-import com.stripe.stripeterminal.external.callable.Cancelable;
-import com.stripe.stripeterminal.external.callable.ReaderCallback;
-import com.stripe.stripeterminal.external.callable.ReadersCallback;
-import com.stripe.stripeterminal.external.callable.RefundCallback;
+import com.stripe.stripeterminal.external.callable.*;
 import com.stripe.stripeterminal.external.models.*;
 import com.stripe.stripeterminal.log.LogLevel;
-import org.example.AppUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
-import static com.stripe.model.StripeObject.PRETTY_PRINT_GSON;
+import org.example.AppUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /** Wrapper class for the Terminal object. */
-public class StripeTerminal implements IStripeTerminal{
+public class StripeTerminal implements IStripeTerminal {
   private final @NotNull Listener listener;
+  private @Nullable Cancelable cancelableOp = null;
+
   public StripeTerminal() {
     String appName = "org.example.ugoTestCliMavenApp";
     listener = new Listener();
@@ -37,6 +41,7 @@ public class StripeTerminal implements IStripeTerminal{
     }
   }
 
+  ReaderListener readerListener = new ReaderListener();
   @Override
   public @Nullable ConnectionStatus getConnectionStatus() {
     return listener.getConnectionStatus();
@@ -52,47 +57,57 @@ public class StripeTerminal implements IStripeTerminal{
     return listener.getOfflineStatus();
   }
 
-  public CompletableFuture<List<Reader>> discoverReaders(boolean simulated) {
+  public CompletableFuture<List<Reader>> discoverInternetReaders(boolean simulated) {
     CompletableFuture<List<Reader>> f = new CompletableFuture<>();
 
     if (simulated) {
       long simulatedFixedTipAmount = 1000L;
       SimulatorConfiguration simulatorConfig =
           new SimulatorConfiguration(
-              new SimulatedCard(SimulatedCardType.AMEX), simulatedFixedTipAmount);
+              SimulateReaderUpdate.UPDATE_AVAILABLE,
+              new SimulatedCard(SimulatedCardType.AMEX),
+              simulatedFixedTipAmount,
+              false);
       Terminal.getInstance().setSimulatorConfiguration(simulatorConfig);
     }
 
     long startTime = System.nanoTime();
-    Terminal.getInstance()
-        .discoverReaders(
-            new DiscoveryConfiguration(simulated, null, 3),
-            new ReadersCallback() {
-              @Override
-              public void onSuccess(@NotNull List<Reader> list) {
-                // complete future with the discovered readers
-                f.complete(list);
-                System.out.println(
-                    "Time elapsed = "
-                        + TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - startTime));
-              }
+    cancelableOp =
+        Terminal.getInstance()
+            .discoverReaders(
+                new DiscoveryConfiguration.InternetDiscoveryConfiguration(3, null, false),
+                f::complete,
+                new Callback() {
+                  @Override
+                  public void onSuccess() {
+                    System.out.println(
+                        "Time elapsed = "
+                            + TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - startTime));
+                  }
 
-              @Override
-              public void onFailure(@NotNull TerminalException e) {
-                // complete future with the error
-                f.completeExceptionally(e);
-              }
-            });
+                  @Override
+                  public void onFailure(@NotNull TerminalException e) {
+                    // complete future with the error
+                    f.completeExceptionally(e);
+                  }
+                });
     return f;
   }
 
-  public CompletableFuture<Reader> connectReader(@NotNull Reader reader) {
+  public CompletableFuture<Reader> connectInternetReader(@NotNull Reader reader) {
     CompletableFuture<Reader> f = new CompletableFuture<>();
 
     Terminal.getInstance()
-        .connectInternetReader(
+        .connectReader(
             reader,
-            new InternetConnectionConfiguration(/*fail_if_in_use*/ true),
+            new ConnectionConfiguration.InternetConnectionConfiguration(
+                /*fail_if_in_use*/ true,
+                new InternetReaderListener() {
+                  @Override
+                  public void onDisconnect(@NotNull DisconnectReason reason) {
+                    System.out.println("Reader disconnected: " + reason);
+                  }
+                }),
             new ReaderCallback() {
               @Override
               public void onSuccess(@NotNull Reader reader) {
@@ -106,6 +121,119 @@ public class StripeTerminal implements IStripeTerminal{
             });
 
     return f;
+  }
+
+  public void discoverUsbReaders(Consumer<List<Reader>> readersConsumer) {
+    cancelableOp =
+        getTerminal()
+            .discoverReaders(
+                new DiscoveryConfiguration.UsbDiscoveryConfiguration(0, false),
+                readersConsumer::accept,
+                new VoidFuture());
+  }
+
+  public Reader connectUsbReader(Reader reader) {
+    CompletableFuture<Reader> f = new CompletableFuture<>();
+
+    connectUsbReader(reader, f);
+    return f.join();
+  }
+
+  private void connectUsbReader(Reader reader, CompletableFuture<Reader> f) {
+    @NotNull String location;
+    try {
+      location = reader.getLocation() != null ? Objects.requireNonNull(reader.getLocation().getId()) : list(new TreeMap<>()).getData().get(0).getId();
+    } catch (StripeException e) {
+      throw new RuntimeException(e);
+    }
+
+    ConnectionConfiguration configuration = new ConnectionConfiguration.UsbConnectionConfiguration(location, readerListener);
+    getTerminal()
+        .connectReader(
+            reader,
+            configuration,
+            new ReaderCallback() {
+              @Override
+              public void onSuccess(@NotNull Reader reader) {
+                f.complete(reader);
+              }
+
+              @Override
+              public void onFailure(@NotNull TerminalException e) {
+                f.completeExceptionally(e);
+              }
+            });
+  }
+
+  public Reader findReaderBySerialNumber(@NotNull String serial)
+      throws TerminalException, TimeoutException, RuntimeException {
+    boolean isInternetReader =
+        Stream.of(DeviceType.STRIPE_S700, DeviceType.WISEPOS_E)
+            .anyMatch(
+                deviceType -> deviceType.getSerialPrefixes().stream().anyMatch(serial::startsWith));
+
+    boolean isMobileReader =
+        Stream.of(
+                DeviceType.WISEPAD_3S,
+                DeviceType.WISEPAD_3,
+                DeviceType.STRIPE_M2,
+                DeviceType.CHIPPER_2X,
+                DeviceType.CHIPPER_1X)
+            .anyMatch(
+                deviceType -> deviceType.getSerialPrefixes().stream().anyMatch(serial::startsWith));
+
+    if (isInternetReader) {
+      Reader discoveredReader =
+          discoverInternetReaders(false).join().stream()
+              .filter(
+                  reader -> {
+                    if (reader.getSerial() != null) {
+                      return serial.contains(reader.getSerial());
+                    } else {
+                      return false;
+                    }
+                  })
+              .findFirst()
+              .orElseThrow(() -> new RuntimeException("Reader not found"));
+      return connectInternetReader(discoveredReader).join();
+    } else if (isMobileReader) {
+      return findUsbReaderBySerial(serial);
+    } else {
+      throw new RuntimeException("Unknown reader type for serial" + serial);
+    }
+  }
+
+  public Reader findUsbReaderBySerial(@NotNull String serial) throws TimeoutException, RuntimeException, TerminalException {
+    CompletableFuture<Reader> f = new CompletableFuture<>();
+    cancelableOp =
+        getTerminal()
+            .discoverReaders(
+                new DiscoveryConfiguration.UsbDiscoveryConfiguration(0, false),
+                readers ->
+                        readers.stream()
+                        .filter(
+                            reader1 -> {
+                              assert reader1.getSerial() != null;
+                              return reader1.getSerial().equals(serial);
+                            })
+                        .findFirst()
+                        .ifPresent(
+                            reader1 -> {
+                              connectUsbReader(reader1, f);
+                            }),
+                new Callback() {
+                  @Override
+                  public void onSuccess() {
+                    System.out.println("Successfully discovered readers");
+                  }
+
+                  @Override
+                  public void onFailure(@NotNull TerminalException e) {
+                    f.completeExceptionally(e);
+                    System.out.println("Failed to discover readers");
+                  }
+                });
+    return f.orTimeout(15, TimeUnit.SECONDS).join();
   }
 
   public void disconnectReader() {
@@ -138,6 +266,7 @@ public class StripeTerminal implements IStripeTerminal{
     Terminal.getInstance().setReaderDisplay(cart, f);
     f.join();
   }
+
   // endregion Display Cart
 
   // region Take Payment
@@ -163,7 +292,8 @@ public class StripeTerminal implements IStripeTerminal{
     return f;
   }
 
-  public CompletableFuture<PaymentIntent> createPayment(@NotNull PaymentIntentParameters parameters, @NotNull CreateConfiguration configuration) {
+  public CompletableFuture<PaymentIntent> createPayment(
+      @NotNull PaymentIntentParameters parameters, @NotNull CreateConfiguration configuration) {
     PaymentIntentFuture f = new PaymentIntentFuture();
     Terminal.getInstance().createPaymentIntent(parameters, configuration, f);
     return f;
@@ -192,16 +322,17 @@ public class StripeTerminal implements IStripeTerminal{
 
   public CompletableFuture<PaymentIntent> collectPaymentMethod(
       @NotNull PaymentIntent paymentIntent) {
-    PaymentMethod pm = paymentIntent.getPaymentMethod();
-    assert pm != null;
-    CardPresentDetails card = pm.getCardPresentDetails() != null ? pm.getCardPresentDetails()
-            : pm.getInteracPresentDetails();
+//    PaymentMethod pm = paymentIntent.getPaymentMethod();
+//    assert pm != null;
+//    CardPresentDetails card =
+//        pm.getCardPresentDetails() != null
+//            ? pm.getCardPresentDetails()
+//            : pm.getInteracPresentDetails();
     PaymentIntentFuture f = new PaymentIntentFuture();
     // Add
-    CollectConfiguration config = new CollectConfiguration.Builder()
-            .updatePaymentIntent(true)
-            .build();
-    Cancelable cancelable = Terminal.getInstance().collectPaymentMethod(paymentIntent, config, f);
+    CollectConfiguration config =
+        new CollectConfiguration.Builder().updatePaymentIntent(true).build();
+    cancelableOp = Terminal.getInstance().collectPaymentMethod(paymentIntent, config, f);
     return f;
   }
 
@@ -211,10 +342,10 @@ public class StripeTerminal implements IStripeTerminal{
     return f;
   }
 
-  CompletableFuture<PaymentIntent> confirmPaymentIntent(
-      @NotNull PaymentIntent paymentIntent) {
+  CompletableFuture<PaymentIntent> confirmPaymentIntent(@NotNull PaymentIntent paymentIntent) {
+    ConfirmConfiguration config = new ConfirmConfiguration.Builder().build();
     PaymentIntentFuture f = new PaymentIntentFuture();
-    Terminal.getInstance().confirmPaymentIntent(paymentIntent, f);
+    Terminal.getInstance().confirmPaymentIntent(paymentIntent, f, config);
     return f;
   }
 
@@ -249,6 +380,7 @@ public class StripeTerminal implements IStripeTerminal{
     paymentIntent = confirmPaymentIntent(paymentIntent).get();
     return paymentIntent;
   }
+
   // endregion Take Payment
 
   // region Save Card
@@ -274,7 +406,8 @@ public class StripeTerminal implements IStripeTerminal{
     return createSetupIntent(SetupIntentParameters.Companion.getNULL());
   }
 
-  private CompletableFuture<SetupIntent> createSetupIntent(@NotNull SetupIntentParameters parameters) {
+  private CompletableFuture<SetupIntent> createSetupIntent(
+      @NotNull SetupIntentParameters parameters) {
     SetupIntentFuture f = new SetupIntentFuture();
     Terminal.getInstance().createSetupIntent(parameters, f);
     return f;
@@ -287,12 +420,11 @@ public class StripeTerminal implements IStripeTerminal{
   }
 
   private CompletableFuture<SetupIntent> collectSetupPaymentMethod(
-      @NotNull SetupIntent setupIntent,
-      @Nullable SetupIntentConfiguration configuration
-  ) {
+      @NotNull SetupIntent setupIntent, @Nullable SetupIntentConfiguration configuration) {
     SetupIntentFuture f = new SetupIntentFuture();
-    Terminal.getInstance()
-        .collectSetupIntentPaymentMethod(setupIntent, /*customerConsentCollected */ true, configuration, f);
+    cancelableOp =
+        Terminal.getInstance()
+            .collectSetupIntentPaymentMethod(setupIntent, AllowRedisplay.ALWAYS, configuration, f);
     return f;
   }
 
@@ -332,7 +464,7 @@ public class StripeTerminal implements IStripeTerminal{
   public List<? extends CollectInputsResult> collectInputs(
       @NotNull CollectInputsParameters parameters) throws Throwable {
     CollectInputsFuture f = new CollectInputsFuture();
-    Cancelable c = Terminal.getInstance().collectInputs(parameters, f);
+    cancelableOp = Terminal.getInstance().collectInputs(parameters, f);
     return getOrThrow(f);
   }
 
@@ -340,6 +472,16 @@ public class StripeTerminal implements IStripeTerminal{
 
   public void printOfflineStatus() {
     prettyPrint(Terminal.getInstance().getOfflineStatus());
+  }
+
+  public void rebootReader() {
+    VoidFuture f = new VoidFuture();
+    Terminal.getInstance().rebootReader(f);
+    f.join();
+  }
+
+  public void installUpdates() {
+    Terminal.getInstance().installAvailableUpdate();
   }
 
   /**
@@ -364,6 +506,7 @@ public class StripeTerminal implements IStripeTerminal{
     }
     return obj;
   }
+
   @Override
   public @NotNull Terminal getTerminal() {
     return Terminal.getInstance();
@@ -380,7 +523,27 @@ public class StripeTerminal implements IStripeTerminal{
   }
 
   @Override
-  public @NotNull VoidFuture waitForForwarding(BiPredicate<PaymentIntent, TerminalException> predicate) {
+  public @NotNull VoidFuture waitForForwarding(
+      BiPredicate<PaymentIntent, TerminalException> predicate) {
     return listener.waitForForwarding(predicate);
+  }
+
+  public boolean cancelOnGoingOperation() {
+    boolean cancelled = false;
+    if (readerListener.cancelable != null) {
+      cancelled = true;
+      VoidFuture f = new VoidFuture();
+      readerListener.cancelable.cancel(f);
+      f.join();
+      readerListener.cancelable = null;
+    }
+    if (cancelableOp != null) {
+      cancelled = true;
+      VoidFuture f = new VoidFuture();
+      cancelableOp.cancel(f);
+      cancelableOp = null;
+    }
+
+    return cancelled;
   }
 }

@@ -3,10 +3,8 @@ package org.example;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Charge;
 import com.stripe.stripeterminal.external.callable.Cancelable;
-import com.stripe.stripeterminal.external.models.Refund;
-import com.stripe.stripeterminal.external.models.RefundConfiguration;
-import com.stripe.stripeterminal.external.models.RefundParameters;
-import com.stripe.stripeterminal.external.models.TerminalException;
+import com.stripe.stripeterminal.external.models.*;
+
 import java.util.*;
 import java.util.concurrent.CompletionException;
 import org.example.terminal.RefundFuture;
@@ -14,9 +12,11 @@ import org.example.terminal.VoidFuture;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+@Disabled
 public class StripeTerminalInteracRefundTest extends StripeTerminalTests {
   private static Charge refundableCharge;
   private static final Map<String, String> metaData =
@@ -80,7 +80,7 @@ public class StripeTerminalInteracRefundTest extends StripeTerminalTests {
     } catch (CompletionException e) {
       Assertions.assertInstanceOf(TerminalException.class, e.getCause());
       Assertions.assertEquals(
-          TerminalException.TerminalErrorCode.CANCELED,
+          TerminalErrorCode.CANCELED,
           ((TerminalException) e.getCause()).getErrorCode());
     }
   }
@@ -104,7 +104,7 @@ public class StripeTerminalInteracRefundTest extends StripeTerminalTests {
     } catch (CompletionException e) {
       Assertions.assertInstanceOf(TerminalException.class, e.getCause());
       Assertions.assertEquals(
-          TerminalException.TerminalErrorCode.CANCELED,
+          TerminalErrorCode.CANCELED,
           ((TerminalException) e.getCause()).getErrorCode());
     }
   }

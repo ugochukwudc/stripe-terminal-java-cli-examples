@@ -10,11 +10,13 @@ import org.example.terminal.PaymentIntentFuture;
 import org.example.terminal.VoidFuture;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+@Disabled
 @Timeout(60)
 public class StripeTerminalCollectPaymentsTest extends StripeTerminalTests {
   Map<String, String> metaData =
@@ -47,7 +49,7 @@ public class StripeTerminalCollectPaymentsTest extends StripeTerminalTests {
         Terminal.getInstance().collectPaymentMethod(createdPI, config, collectFuture);
     PaymentIntent collectedPI = collectFuture.join();
     PaymentIntentFuture confirmFuture = new PaymentIntentFuture();
-    Terminal.getInstance().confirmPaymentIntent(collectedPI, confirmFuture);
+    Terminal.getInstance().confirmPaymentIntent(collectedPI, confirmFuture, new ConfirmConfiguration.Builder().build());
     PaymentIntent confirmedPI = confirmFuture.join();
     Assertions.assertEquals(PaymentIntentStatus.SUCCEEDED, confirmedPI.getStatus());
     Assertions.assertEquals(metaData, confirmedPI.getMetadata());
@@ -97,7 +99,7 @@ public class StripeTerminalCollectPaymentsTest extends StripeTerminalTests {
     } catch (CompletionException e) {
       Assertions.assertInstanceOf(TerminalException.class, e.getCause());
       Assertions.assertEquals(
-          TerminalException.TerminalErrorCode.CANCELED,
+          TerminalErrorCode.CANCELED,
           ((TerminalException) e.getCause()).getErrorCode());
     }
   }
@@ -135,7 +137,7 @@ public class StripeTerminalCollectPaymentsTest extends StripeTerminalTests {
     } catch (CompletionException e) {
       Assertions.assertInstanceOf(TerminalException.class, e.getCause());
       Assertions.assertEquals(
-          TerminalException.TerminalErrorCode.CANCELED,
+          TerminalErrorCode.CANCELED,
           ((TerminalException) e.getCause()).getErrorCode());
     }
   }

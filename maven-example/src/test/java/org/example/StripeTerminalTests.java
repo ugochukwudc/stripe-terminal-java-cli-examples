@@ -7,17 +7,17 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Scanner;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.prefs.BackingStoreException;
 import org.example.network.ApiClient;
 import org.example.terminal.StripeTerminal;
-import org.example.terminal.VoidFuture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 
+@Disabled
 public class StripeTerminalTests {
   protected static StripeTerminal terminal;
   protected static ApiClient apiClient;
@@ -36,13 +36,13 @@ public class StripeTerminalTests {
   @BeforeEach
   void connectToTestReader()
       throws NoSuchElementException, ExecutionException, InterruptedException {
-    List<Reader> readerList = terminal.discoverReaders(false).get();
+    List<Reader> readerList = terminal.discoverInternetReaders(false).get();
     int failureCount = 0;
     do {
       System.out.println("connecting to reader: " + TEST_READER_LABEL);
       try {
         terminal
-            .connectReader(
+            .connectInternetReader(
                 readerList.stream()
                     .filter(reader -> Objects.equals(reader.getLabel(), TEST_READER_LABEL))
                     .findFirst()

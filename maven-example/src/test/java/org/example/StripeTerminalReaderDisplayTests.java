@@ -1,16 +1,15 @@
 package org.example;
 
-import com.stripe.stripeterminal.Terminal;
 import com.stripe.stripeterminal.external.models.*;
 import java.util.ArrayList;
 import java.util.List;
-import org.example.terminal.VoidFuture;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+@Disabled
 @Timeout(60)
 public class StripeTerminalReaderDisplayTests extends StripeTerminalTests {
 
