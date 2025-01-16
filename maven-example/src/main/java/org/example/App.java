@@ -127,7 +127,7 @@ public class App {
           System.out.println("Successfully disconnected");
         }
       }
-    } while (selection >= 1 && selection <= 8);
+    } while (selection >= 1 && selection <= 10);
     sc.close();
   }
 
