@@ -123,18 +123,22 @@ public class StripeTerminal implements IStripeTerminal {
     return f;
   }
 
-  public void discoverUsbReaders(Consumer<List<Reader>> readersConsumer) {
-    cancelableOp =
-        getTerminal()
-            .discoverReaders(
-                new DiscoveryConfiguration.UsbDiscoveryConfiguration(0, false),
-                readersConsumer::accept,
-                new VoidFuture());
+  public void discoverUsbReaders(Consumer<List<Reader>> readersConsumer) throws TerminalException {
+    VoidFuture f = new VoidFuture();
+    // offload discovery to a background thread so it is not blocking
+    CompletableFuture.runAsync(
+        () ->
+            cancelableOp =
+                getTerminal()
+                    .discoverReaders(
+                        new DiscoveryConfiguration.UsbDiscoveryConfiguration(0, false),
+                        readersConsumer::accept,
+                        f));
+    f.join();
   }
 
-  public Reader connectUsbReader(Reader reader) {
+  public Reader connectUsbReader(Reader reader) throws TimeoutException, RuntimeException, TerminalException  {
     CompletableFuture<Reader> f = new CompletableFuture<>();
-
     connectUsbReader(reader, f);
     return f.join();
   }
@@ -147,6 +151,7 @@ public class StripeTerminal implements IStripeTerminal {
       throw new RuntimeException(e);
     }
 
+    System.out.println("Connecting to usb reader at location: " + location);
     ConnectionConfiguration configuration = new ConnectionConfiguration.UsbConnectionConfiguration(location, readerListener);
     getTerminal()
         .connectReader(
@@ -160,6 +165,8 @@ public class StripeTerminal implements IStripeTerminal {
 
               @Override
               public void onFailure(@NotNull TerminalException e) {
+                System.err.println("Error in connecting to reader: " + e.getMessage());
+                e.printStackTrace();
                 f.completeExceptionally(e);
               }
             });

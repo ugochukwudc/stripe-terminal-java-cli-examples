@@ -56,7 +56,7 @@ public class App {
     SignalHandler handler =
             signal -> {
               System.out.println("Signal received: " + signal);
-              if (!terminal.cancelOnGoingOperation()) {
+              if (!signal.getName().equals("INT") || !terminal.cancelOnGoingOperation()) {
                 // Use the default signal handler
                 SignalHandler.SIG_DFL.handle(signal);
               }
@@ -74,11 +74,26 @@ public class App {
           connectedReaderFuture.complete(terminal.connectInternetReader(Objects.requireNonNull(selectedReader)).get());
         }
         case "3" -> {
-          terminal.discoverUsbReaders(readers -> {
-            Reader selectedReader = selectReader(readers);
-            System.out.printf("Connecting to reader: %s \n", selectedReader);
-            connectedReaderFuture.complete(terminal.connectUsbReader(Objects.requireNonNull(selectedReader)));
-          });
+        System.out.printf("Discovering readers on %s \n", Thread.currentThread().getName());
+        terminal.discoverUsbReaders(
+            readers -> {
+              if (!readers.isEmpty()) {
+                CompletableFuture.runAsync(
+                    () -> {
+                      Reader selectedReader = selectReader(readers);
+                      System.out.printf(
+                          "Connecting to reader: %s on %s thread\n",
+                          selectedReader, Thread.currentThread().getName());
+                      try {
+                        Reader connectedReader =
+                            terminal.connectUsbReader(Objects.requireNonNull(selectedReader));
+                        connectedReaderFuture.complete(connectedReader);
+                      } catch (Exception e) {
+                        connectedReaderFuture.completeExceptionally(e);
+                      }
+                    });
+              }
+            });
         }
         default -> connectedReaderFuture.complete(terminal.findReaderBySerialNumber(line));
       }
@@ -165,6 +180,9 @@ public class App {
    * @return a boolean flag, which is `true` when the ip address is reachable and `false` otherwise.
    */
   private static boolean isReachable(Reader reader) {
+    if (reader.getIpAddress() == null) {
+      return false;
+    }
     try {
       String ip = Objects.requireNonNull(reader.getIpAddress());
       return InetAddress.getByAddress(AppUtils.parseIpAddress(ip)).isReachable(100);
