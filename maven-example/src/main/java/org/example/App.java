@@ -35,6 +35,7 @@ public class App {
         1 - Discover Internet Readers
         2 - Discover Internet Simulators
         3 - Discover Usb Readers
+        4 - Exit
 """;
 
   public static void main(String[] args)
@@ -94,6 +95,9 @@ public class App {
                     });
               }
             });
+        }
+        case "4" -> {
+          return;
         }
         default -> connectedReaderFuture.complete(terminal.findReaderBySerialNumber(line));
       }
