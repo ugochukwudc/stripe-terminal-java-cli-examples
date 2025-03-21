@@ -58,8 +58,7 @@ public class App {
             signal -> {
               System.out.println("Signal received: " + signal);
               if (!signal.getName().equals("INT") || !terminal.cancelOnGoingOperation()) {
-                // Use the default signal handler
-                SignalHandler.SIG_DFL.handle(signal);
+                System.exit(0); // exit program
               }
             };
 
