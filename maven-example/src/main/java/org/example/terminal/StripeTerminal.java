@@ -67,7 +67,8 @@ public class StripeTerminal implements IStripeTerminal {
               SimulateReaderUpdate.UPDATE_AVAILABLE,
               new SimulatedCard(SimulatedCardType.AMEX),
               simulatedFixedTipAmount,
-              false);
+              false,
+                  new SimulatedCollectInputsResult.SimulatedCollectInputsResultSucceeded(SimulatedCollectInputsSkipBehavior.ALL));
       Terminal.getInstance().setSimulatorConfiguration(simulatorConfig);
     }
 
