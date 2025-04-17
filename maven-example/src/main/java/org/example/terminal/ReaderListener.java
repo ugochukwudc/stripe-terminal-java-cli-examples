@@ -106,7 +106,10 @@ public class ReaderListener implements InternetReaderListener, MobileReaderListe
     @Override
     public void onDisconnect(@NotNull DisconnectReason reason) {
         System.out.printf("Disconnected %s \n", reason);
-        throw new RuntimeException("Disconnected due to " + reason);
+        if (reason != DisconnectReason.DISCONNECT_REQUESTED) {
+            // Reader is no longer connected
+            throw new RuntimeException("Disconnected due to " + reason);
+        }
     }
 
 /**

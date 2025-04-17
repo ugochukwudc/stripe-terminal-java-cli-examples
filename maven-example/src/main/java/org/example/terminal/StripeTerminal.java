@@ -132,10 +132,17 @@ public class StripeTerminal implements IStripeTerminal {
             cancelableOp =
                 getTerminal()
                     .discoverReaders(
-                        new DiscoveryConfiguration.UsbDiscoveryConfiguration(0, false),
+                        new DiscoveryConfiguration.UsbDiscoveryConfiguration(10, false),
                         readersConsumer::accept,
                         f));
-    f.join();
+    try {
+      f.join();
+    } catch (Exception e) {
+      if (e.getCause() instanceof TerminalException) {
+        throw (TerminalException) e.getCause();
+      }
+      throw new RuntimeException(e);
+    }
   }
 
   public Reader connectUsbReader(Reader reader) throws TimeoutException, RuntimeException, TerminalException  {
@@ -396,7 +403,7 @@ public class StripeTerminal implements IStripeTerminal {
   public SetupIntent saveCardClientSideCreate() throws ExecutionException, InterruptedException {
     SetupIntent setupIntent;
     setupIntent = createSetupIntent().get();
-    setupIntent = collectSetupPaymentMethod(setupIntent, null).get();
+    setupIntent = collectSetupPaymentMethod(setupIntent, new SetupIntentConfiguration.Builder().build()).get();
     setupIntent = confirmSetupIntent(setupIntent).get();
     return setupIntent;
   }
@@ -405,7 +412,7 @@ public class StripeTerminal implements IStripeTerminal {
       throws ExecutionException, InterruptedException {
     SetupIntent setupIntent;
     setupIntent = retrieveSetupIntent(secret).get();
-    setupIntent = collectSetupPaymentMethod(setupIntent, null).get();
+    setupIntent = collectSetupPaymentMethod(setupIntent, new SetupIntentConfiguration.Builder().build()).get();
     setupIntent = confirmSetupIntent(setupIntent).get();
     return setupIntent;
   }
@@ -428,7 +435,7 @@ public class StripeTerminal implements IStripeTerminal {
   }
 
   private CompletableFuture<SetupIntent> collectSetupPaymentMethod(
-      @NotNull SetupIntent setupIntent, @Nullable SetupIntentConfiguration configuration) {
+      @NotNull SetupIntent setupIntent, @NotNull SetupIntentConfiguration configuration) {
     SetupIntentFuture f = new SetupIntentFuture();
     cancelableOp =
         Terminal.getInstance()

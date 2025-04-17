@@ -11,6 +11,7 @@ import java.util.concurrent.*;
 import java.util.prefs.BackingStoreException;
 import org.example.network.ApiClient;
 import org.example.terminal.StripeTerminal;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
@@ -132,6 +133,37 @@ public class App {
       }
     } while (selection >= 1 && selection <= 10);
     sc.close();
+  }
+
+    /**
+     * This method is used to create a thread that dumps the state of all threads in the current
+     * thread group.
+     *
+     * @param threadName - name of the thread to be created.
+     * @return a Thread object that dumps the state of all threads in the current thread group.
+     */
+  private static @NotNull Thread getThread(@NotNull String threadName) {
+    Thread t = new Thread(threadName) {
+      @Override
+      public void run() {
+          System.out.println("Dumping thread state =======");
+          while(Thread.currentThread().isAlive()) {
+            Thread[] threads = new Thread[Thread.activeCount()];
+            Thread.currentThread().getThreadGroup().enumerate(threads);
+            Arrays.stream(threads)
+                    .filter(t -> t.isAlive() && !t.isDaemon())
+                    .forEach(t -> System.out.println(t.getName() + " " + t.getState() + " " ));
+            System.out.println("Dumped thread state =======\n\n\n\n");
+              try {
+                  Thread.sleep(5000L);
+              } catch (InterruptedException e) {
+                  throw new RuntimeException(e);
+              }
+          }
+      }
+    };
+    t.setDaemon(true);
+    return t;
   }
 
   private static @Nullable Reader selectReader(List<Reader> readers) {
