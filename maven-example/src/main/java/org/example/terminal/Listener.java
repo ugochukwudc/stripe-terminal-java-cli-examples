@@ -72,24 +72,10 @@ public class Listener implements TerminalListener, OfflineListener, TerminalStat
     testPaymentForwardingWaiters(paymentIntent, e);
     if (e != null) {
       System.err.printf(
-      """
-      =========================================================================================================================
-      Encountered error while forwarding
-      Payment Intent : %s
-      Offline Details: %s
-      Error code: %s
-      =========================================================================================================================
-      """, paymentIntent, paymentIntent.getOfflineDetails(), e.getErrorCode());
+      " Encountered error while forwarding \nPayment Intent : %s \nOffline Details: %s \nError code: %s\n", paymentIntent, paymentIntent.getOfflineDetails(), e.getErrorCode());
       e.printStackTrace();
     } else {
-      System.out.printf(
-      """
-      ==========================================================================================================================
-      Successful Forward!
-      Payment Intent: %s
-      Offline Details: %s
-      ==========================================================================================================================
-      """, paymentIntent, paymentIntent.getOfflineDetails());
+      System.out.printf("Successful Forward! \nPayment Intent: %s \nOffline Details: %s\n", paymentIntent, paymentIntent.getOfflineDetails());
     }
   }
 

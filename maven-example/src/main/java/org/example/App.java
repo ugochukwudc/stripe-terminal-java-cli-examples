@@ -9,6 +9,8 @@ import java.net.SocketException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.prefs.BackingStoreException;
+
+import jdk.internal.org.jline.utils.Display;
 import org.example.network.ApiClient;
 import org.example.terminal.StripeTerminal;
 import org.jetbrains.annotations.NotNull;
@@ -17,27 +19,27 @@ import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
 public class App {
-  private static final String MENU = """
-        1 - Take Payment Client Side Create
-        2 - Take Payment Server Side Create
-        3 - Save Card Client Side Create
-        4 - Save Card Server Side Create
-        5 - Display Cart
-        6 - Clear Reader Display
-        7 - Refund
-        8 - Print Offline Status
-        9 - Reboot Reader
-        10 - Install Updates
-        11 - Disconnect Reader
-        12 - Exit
-""";
-  private static final String DISCOVERY_MENU = """
-        Select Option for discover or enter the serial number of the reader you want to connect to:
-        1 - Discover Internet Readers
-        2 - Discover Internet Simulators
-        3 - Discover Usb Readers
-        4 - Exit
-""";
+  private static final String MENU = "" +
+          "\n\t\t1 - Take Payment Client Side Create" +
+          "\n\t\t2 - Take Payment Server Side Create" +
+          "\n\t\t3 - Save Card Client Side Create" +
+          "\n\t\t4 - Save Card Server Side Create" +
+          "\n\t\t5 - Display Cart" +
+          "\n\t\t6 - Clear Reader Display" +
+          "\n\t\t7 - Refund" +
+          "\n\t\t8 - Print Offline Status" +
+          "\n\t\t9 - Reboot Reader" +
+          "\n\t\t10 - Install Updates" +
+          "\n\t\t11 - Disconnect Reader" +
+          "\n\t\t12 - Exit" +
+          "\n";
+  private static final String DISCOVERY_MENU =
+          "Select Option for discover or enter the serial number of the reader you want to connect to:" +
+                  "\n\t\t1 - Discover Internet Readers" +
+                  "\n\t\t2 - Discover Internet Simulators" +
+                  "\n\t\t3 - Discover Usb Readers" +
+                  "\n\t\t4 - Exit" +
+                  "\n";
 
   public static void main(String[] args)
       throws BackingStoreException, ExecutionException, InterruptedException, SocketException, TimeoutException, TerminalException {
@@ -66,15 +68,17 @@ public class App {
     Signal.handle(new Signal("INT"), handler);
     CompletableFuture<Reader> connectedReaderFuture = new CompletableFuture<>();
     System.out.print(DISCOVERY_MENU);
-    String line = sc.nextLine().strip();
+    String line = sc.nextLine();
       switch (line) {
-        case "1", "2" -> {
+        case "1":
+        case "2" : {
           List<Reader> readerList = terminal.discoverInternetReaders(line.equals("2")).get();
           Reader selectedReader = selectReader(readerList);
           System.out.printf("Connecting to reader: %s \n", selectedReader);
           connectedReaderFuture.complete(terminal.connectInternetReader(Objects.requireNonNull(selectedReader)).get());
         }
-        case "3" -> {
+        break;
+        case "3" : {
         System.out.printf("Discovering readers on %s \n", Thread.currentThread().getName());
         terminal.discoverUsbReaders(
             readers -> {
@@ -96,36 +100,35 @@ public class App {
               }
             });
         }
-        case "4" -> {
+        break;
+        case "4" : {
           return;
         }
-        default -> connectedReaderFuture.complete(terminal.findReaderBySerialNumber(line));
+        default : connectedReaderFuture.complete(terminal.findReaderBySerialNumber(line));
       }
-
-      // Get the connected reader, timeout after 60 seconds
-    Reader connectedReader = connectedReaderFuture.orTimeout(60, TimeUnit.SECONDS).join();
 
     int selection;
     do {
       selection = getMenuItem(sc);
       switch (selection) {
-        case 1 -> terminal.takePaymentClientSideCreate(apiClient.getCurrency());
-        case 2 -> terminal.takePaymentServerSideCreate(getClientSecret(sc));
-        case 3 -> terminal.saveCardClientSideCreate();
-        case 4 -> terminal.saveCardServerSideCreate(getClientSecret(sc));
-        case 5 -> terminal.displayCart(apiClient.getCurrency());
-        case 6 -> terminal.clearReaderDisplay();
-        case 7 -> {
+        case 1:  terminal.takePaymentClientSideCreate(apiClient.getCurrency()); break;
+        case 2 : terminal.takePaymentServerSideCreate(getClientSecret(sc)); break;
+        case 3 : terminal.saveCardClientSideCreate(); break;
+        case 4 : terminal.saveCardServerSideCreate(getClientSecret(sc)); break;
+        case 5 : terminal.displayCart(apiClient.getCurrency()); break;
+        case 6 : terminal.clearReaderDisplay(); break;
+        case 7 : {
           System.out.println("Enter chargeId for payment you want to refund: ");
           String chargeId = sc.nextLine();
           System.out.println("Enter amount to refund: ");
           long amount = sc.nextLong();
           terminal.refund(chargeId, apiClient.getCurrency(), amount);
+          break;
         }
-        case 8 -> terminal.printOfflineStatus();
-        case 9 -> terminal.rebootReader();
-        case 10 -> terminal.installUpdates();
-        default -> {
+        case 8 : terminal.printOfflineStatus(); break;
+        case 9 : terminal.rebootReader(); break;
+        case 10 : terminal.installUpdates();  break;
+        default : {
           System.out.println("Disconnecting reader");
           terminal.disconnectReader();
           System.out.println("Successfully disconnected");
@@ -226,75 +229,5 @@ public class App {
       e.printStackTrace();
     }
     return false;
-  }
-
-  private static void checkNetwork() {
-    boolean hasNetwork = callSafely(App::hasNetwork);
-    boolean isStripeReachable =
-        callSafely(
-            () -> InetAddress.getByName("abc.com").isReachable(1000));
-
-    System.out.printf("hasNetwork: %1b, isReachable %2b\n", hasNetwork, isStripeReachable);
-  }
-
-  private static boolean hasNetwork() throws Exception {
-    Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
-    final boolean[] retValue = {false};
-    networkInterfaces
-            .asIterator()
-            .forEachRemaining(networkInterface -> {
-              boolean isUp =callSafely(networkInterface::isUp);
-              boolean isLoopback = callSafely(networkInterface::isLoopback);
-              if (isUp && !isLoopback) {
-                retValue[0] = true;
-              }
-              System.out.printf("Checking network %1s, isUp= %2b, isLoopback = %3b, isVirtual = %4b, name = %5s\n", networkInterface, isUp, isLoopback, networkInterface.isVirtual(), networkInterface.getDisplayName());
-            });
-    while ((networkInterfaces = NetworkInterface.getNetworkInterfaces()).hasMoreElements()) {
-      NetworkInterface networkInterface = networkInterfaces.nextElement();
-      System.out.printf("Checking network %1s, isUp= %2b, isLoopback = %3b, isVirtual = %4b, name = %5s\n", networkInterface, networkInterface.isUp(), networkInterface.isLoopback(), networkInterface.isVirtual(), networkInterface.getDisplayName());
-      if (networkInterface.isUp() && !networkInterface.isLoopback()) {
-        retValue[0] = true;
-      }
-    }
-
-    return retValue[0];
-  }
-
-  private static void displayNetworkState() throws SocketException {
-    Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
-    for (NetworkInterface netint : Collections.list(nets))
-      displayInterfaceInformation(netint);
-  }
-
-  static void displayInterfaceInformation(NetworkInterface netint) throws SocketException {
-    System.out.printf("Display name: %s\n", netint.getDisplayName());
-    System.out.printf("Name: %s\n", netint.getName());
-    Enumeration<InetAddress> inetAddresses = netint.getInetAddresses();
-
-    for (InetAddress inetAddress : Collections.list(inetAddresses)) {
-      System.out.printf("InetAddress: %s\n", inetAddress);
-    }
-
-    System.out.printf("Up? %s\n", netint.isUp());
-    System.out.printf("Loopback? %s\n", netint.isLoopback());
-    System.out.printf("PointToPoint? %s\n", netint.isPointToPoint());
-    System.out.printf("Supports multicast? %s\n", netint.supportsMulticast());
-    System.out.printf("Virtual? %s\n", netint.isVirtual());
-    System.out.printf("Hardware address: %s\n",
-            Arrays.toString(netint.getHardwareAddress()));
-    System.out.printf("MTU: %s\n", netint.getMTU());
-    System.out.print("\n");
-  }
-
-  private static boolean callSafely(Callable<Boolean> callable) {
-    boolean ret;
-    try {
-      ret = callable.call();
-    } catch (Exception e) {
-      System.err.println(e);
-      ret = false;
-    }
-    return ret;
   }
 }
