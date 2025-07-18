@@ -16,12 +16,13 @@ This repository contains two examples. The `maven-example` is the complete, up-t
 
 ### Prerequisites
 
-  * **Java Development Kit (JDK)**: Version 8 or higher.
-  * **No Maven Installation Needed\!** This project uses the Maven Wrapper (`mvnw`), which automatically downloads the correct Maven version for you.
+  * **Java Development Kit (JDK)**: Version 8 or higher. You can check your version by running `java -version`.
+  * **Apache Maven**: You must have Maven installed on your system to build this project. You can verify it's installed by running `mvn -v`.
+      * If you don't have Maven, please follow the official installation instructions available at [maven.apache.org/install.html](https://maven.apache.org/install.html).
 
 ### 1\. Clone the Repository
 
-Open your terminal and clone this repository to your local machine.
+Open your terminal and clone the repository to your local machine.
 
 ```bash
 git clone https://github.com/ugochukwudc/stripe-terminal-java-cli-examples.git
@@ -29,21 +30,18 @@ git clone https://github.com/ugochukwudc/stripe-terminal-java-cli-examples.git
 
 ### 2\. Build the Application
 
-Navigate into the correct project directory and use the Maven Wrapper to build the application. This command will compile the code, run tests, and package it into an executable JAR file.
+Navigate to the `maven-example` directory and use the `mvn` command to build the project. This command will compile the source code, run tests, and package the application into a single executable JAR file.
 
 ```bash
-# Navigate to the maven example directory
-cd stripe-terminal-java-cli-examples/maven-example/StripeTerminalCLI/
+# Navigate to the correct directory
+cd stripe-terminal-java-cli-examples/maven-example/
 
-# Build the project using the wrapper
-# On macOS or Linux:
-./mvnw clean package
-
-# On Windows:
-mvnw.cmd clean package
+# Build the project using Maven
+mvn clean package
 ```
 
-The first time you run this, it will download all the necessary dependencies. A successful build will end with a `[INFO] BUILD SUCCESS` message. The final application file, `StripeTerminalCLI-1.0-SNAPSHOT.jar`, will be located in the `target` directory.
+A successful build will end with a `[INFO] BUILD SUCCESS` message. The final application file, `stripe-terminal-cli-2.0-SNAPSHOT.jar`, will be created inside the `target` directory.
+
 
 ### 3\. Run the Application
 
