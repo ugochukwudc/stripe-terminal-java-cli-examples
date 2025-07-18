@@ -16,7 +16,7 @@ This repository contains two examples. The `maven-example` is the complete, up-t
 
 ### Prerequisites
 
-  * **Java Development Kit (JDK)**: Version 8 or higher. You can check your version by running `java -version`.
+  * **Java Development Kit (JDK)**: Version 17 or higher. You can check your version by running `java -version`.
   * **Apache Maven**: You must have Maven installed on your system to build this project. You can verify it's installed by running `mvn -v`.
       * If you don't have Maven, please follow the official installation instructions available at [maven.apache.org/install.html](https://maven.apache.org/install.html).
 
