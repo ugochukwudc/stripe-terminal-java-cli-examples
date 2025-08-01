@@ -18,7 +18,7 @@
         <dependency>
             <groupId>com.stripe</groupId>
             <artifactId>stripeterminal-java</artifactId>
-            <version>1.0.0-b13</version>
+            <version>1.0.0-b14</version>
         </dependency>
         <dependency>
             <groupId>com.stripe</groupId>

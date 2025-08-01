@@ -414,6 +414,8 @@ public class StripeTerminal implements IStripeTerminal {
     setupIntent = retrieveSetupIntent(secret).get();
     setupIntent = collectSetupPaymentMethod(setupIntent, new SetupIntentConfiguration.Builder().build()).get();
     setupIntent = confirmSetupIntent(setupIntent).get();
+    String funding = setupIntent.getPaymentMethod().getCardPresentDetails().getFunding();
+    String last4 = setupIntent.getPaymentMethod().getCardPresentDetails().getLast4();
     return setupIntent;
   }
 
