@@ -133,7 +133,6 @@ public class App {
       }
     } while (selection >= 1 && selection <= 10);
     sc.close();
-    getThread("Dumper").start();
   }
 
     /**

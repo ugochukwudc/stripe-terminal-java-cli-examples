@@ -32,7 +32,7 @@ public class StripeTerminal implements IStripeTerminal {
     String appName = "org.example.ugoTestCliMavenApp";
     listener = new Listener();
     if (!Terminal.isInitialized()) {
-      Terminal.initTerminal(
+      Terminal.init(
           new TokenProvider(),
           listener,
           new ApplicationInformation(appName, "2.0.0", AppUtils.appDataDirectory(appName)),
@@ -58,6 +58,10 @@ public class StripeTerminal implements IStripeTerminal {
   }
 
   public CompletableFuture<List<Reader>> discoverInternetReaders(boolean simulated) {
+      return discoverInternetReaders(simulated, DiscoveryFilter.None.INSTANCE);
+  }
+
+  private CompletableFuture<List<Reader>> discoverInternetReaders(boolean simulated, @NotNull DiscoveryFilter filter) {
     CompletableFuture<List<Reader>> f = new CompletableFuture<>();
 
     if (simulated) {
@@ -76,7 +80,7 @@ public class StripeTerminal implements IStripeTerminal {
     cancelableOp =
         Terminal.getInstance()
             .discoverReaders(
-                new DiscoveryConfiguration.InternetDiscoveryConfiguration(3, null, false),
+                new DiscoveryConfiguration.InternetDiscoveryConfiguration(3, null, false, filter),
                 f::complete,
                 new Callback() {
                   @Override
@@ -102,13 +106,14 @@ public class StripeTerminal implements IStripeTerminal {
         .connectReader(
             reader,
             new ConnectionConfiguration.InternetConnectionConfiguration(
-                /*fail_if_in_use*/ true,
                 new InternetReaderListener() {
                   @Override
                   public void onDisconnect(@NotNull DisconnectReason reason) {
                     System.out.println("Reader disconnected: " + reason);
                   }
-                }),
+                },
+                /*fail_if_in_use*/ true
+            ),
             new ReaderCallback() {
               @Override
               public void onSuccess(@NotNull Reader reader) {
@@ -123,6 +128,36 @@ public class StripeTerminal implements IStripeTerminal {
 
     return f;
   }
+    public CompletableFuture<Reader> easyConnect(@NotNull String serialNumber) {
+        CompletableFuture<Reader> f = new CompletableFuture<>();
+
+        Terminal.getInstance()
+                .easyConnect(
+                        new EasyConnectConfiguration.InternetEasyConnectConfiguration(
+                        new DiscoveryConfiguration.InternetDiscoveryConfiguration(3, null, false, new DiscoveryFilter.BySerial(serialNumber)),
+                        new ConnectionConfiguration.InternetConnectionConfiguration(
+                                new InternetReaderListener() {
+                                    @Override
+                                    public void onDisconnect(@NotNull DisconnectReason reason) {
+                                        System.out.println("Reader disconnected: " + reason);
+                                    }
+                                },
+                                /*fail_if_in_use*/ true
+                        )),
+                        new ReaderCallback() {
+                            @Override
+                            public void onSuccess(@NotNull Reader reader) {
+                                f.complete(reader);
+                            }
+
+                            @Override
+                            public void onFailure(@NotNull TerminalException e) {
+                                f.completeExceptionally(e);
+                            }
+                        });
+
+        return f;
+    }
 
   public void discoverUsbReaders(Consumer<List<Reader>> readersConsumer) throws TerminalException {
     VoidFuture f = new VoidFuture();
@@ -198,19 +233,7 @@ public class StripeTerminal implements IStripeTerminal {
                 deviceType -> deviceType.getSerialPrefixes().stream().anyMatch(serial::startsWith));
 
     if (isInternetReader) {
-      Reader discoveredReader =
-          discoverInternetReaders(false).join().stream()
-              .filter(
-                  reader -> {
-                    if (reader.getSerial() != null) {
-                      return serial.contains(reader.getSerial());
-                    } else {
-                      return false;
-                    }
-                  })
-              .findFirst()
-              .orElseThrow(() -> new RuntimeException("Reader not found"));
-      return connectInternetReader(discoveredReader).join();
+        return easyConnect(serial).join();
     } else if (isMobileReader) {
       return findUsbReaderBySerial(serial);
     } else {
@@ -228,8 +251,8 @@ public class StripeTerminal implements IStripeTerminal {
                         readers.stream()
                         .filter(
                             reader1 -> {
-                              assert reader1.getSerial() != null;
-                              return reader1.getSerial().equals(serial);
+                              assert reader1.getSerialNumber() != null;
+                              return reader1.getSerialNumber().equals(serial);
                             })
                         .findFirst()
                         .ifPresent(
@@ -345,8 +368,8 @@ public class StripeTerminal implements IStripeTerminal {
 //            : pm.getInteracPresentDetails();
     PaymentIntentFuture f = new PaymentIntentFuture();
     // Add
-    CollectConfiguration config =
-        new CollectConfiguration.Builder().updatePaymentIntent(true).build();
+    CollectPaymentIntentConfiguration config =
+        new CollectPaymentIntentConfiguration.Builder().updatePaymentIntent(true).build();
     cancelableOp = Terminal.getInstance().collectPaymentMethod(paymentIntent, config, f);
     return f;
   }
@@ -358,7 +381,7 @@ public class StripeTerminal implements IStripeTerminal {
   }
 
   CompletableFuture<PaymentIntent> confirmPaymentIntent(@NotNull PaymentIntent paymentIntent) {
-    ConfirmConfiguration config = new ConfirmConfiguration.Builder().build();
+    ConfirmPaymentIntentConfiguration config = new ConfirmPaymentIntentConfiguration.Builder().build();
     PaymentIntentFuture f = new PaymentIntentFuture();
     Terminal.getInstance().confirmPaymentIntent(paymentIntent, f, config);
     return f;
@@ -403,7 +426,7 @@ public class StripeTerminal implements IStripeTerminal {
   public SetupIntent saveCardClientSideCreate() throws ExecutionException, InterruptedException {
     SetupIntent setupIntent;
     setupIntent = createSetupIntent().get();
-    setupIntent = collectSetupPaymentMethod(setupIntent, new SetupIntentConfiguration.Builder().build()).get();
+    setupIntent = collectSetupPaymentMethod(setupIntent, new CollectSetupIntentConfiguration.Builder().build()).get();
     setupIntent = confirmSetupIntent(setupIntent).get();
     return setupIntent;
   }
@@ -412,7 +435,7 @@ public class StripeTerminal implements IStripeTerminal {
       throws ExecutionException, InterruptedException {
     SetupIntent setupIntent;
     setupIntent = retrieveSetupIntent(secret).get();
-    setupIntent = collectSetupPaymentMethod(setupIntent, new SetupIntentConfiguration.Builder().build()).get();
+    setupIntent = collectSetupPaymentMethod(setupIntent, new CollectSetupIntentConfiguration.Builder().build()).get();
     setupIntent = confirmSetupIntent(setupIntent).get();
     String funding = setupIntent.getPaymentMethod().getCardPresentDetails().getFunding();
     String last4 = setupIntent.getPaymentMethod().getCardPresentDetails().getLast4();
@@ -437,7 +460,7 @@ public class StripeTerminal implements IStripeTerminal {
   }
 
   private CompletableFuture<SetupIntent> collectSetupPaymentMethod(
-      @NotNull SetupIntent setupIntent, @NotNull SetupIntentConfiguration configuration) {
+      @NotNull SetupIntent setupIntent, @NotNull CollectSetupIntentConfiguration configuration) {
     SetupIntentFuture f = new SetupIntentFuture();
     cancelableOp =
         Terminal.getInstance()
@@ -457,7 +480,7 @@ public class StripeTerminal implements IStripeTerminal {
       throws ExecutionException, InterruptedException {
     VoidFuture collectRefundFuture = new VoidFuture();
     CompletableFuture<Refund> processRefundFuture = new CompletableFuture<>();
-    RefundParameters parameters = new RefundParameters.Builder(chargeId, amount, currency).build();
+    RefundParameters parameters = new RefundParameters.ByChargeId(chargeId, amount, currency).build();
     Terminal.getInstance().collectRefundPaymentMethod(parameters, collectRefundFuture);
     collectRefundFuture.get();
     Terminal.getInstance()
